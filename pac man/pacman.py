@@ -1,5 +1,6 @@
 import pygame
 
+
 DIRECTION_RIGHT = 4
 DIRECTION_UP = 3
 DIRECTION_LEFT = 2
@@ -74,12 +75,16 @@ class Pacman:
             if m[cy][cx] == 1: return True
         return False
 
-    def eat(self):
-        """Съедает точку (2 → 3) и увеличивает счёт"""
+    def eat(self, ghosts):
         i, j = self.get_map_y(), self.get_map_x()
         if self.map_data[i][j] == 2:
             self.map_data[i][j] = 3
             self.score += 1
+        elif self.map_data[i][j] == 4:
+            self.map_data[i][j] = 3
+            self.score += 10
+            for g in ghosts:
+                g.make_vulnerable()
 
     def check_ghost_collision(self, ghosts):
         for ghost in ghosts:
