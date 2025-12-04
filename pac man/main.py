@@ -24,6 +24,7 @@ ghost_images = [
     pygame.image.load("assets/green.png").convert_alpha(),
     pygame.image.load("assets/blue.png").convert_alpha(),
 ]
+vulnerable_image = pygame.image.load("assets/death.png").convert_alpha()
 
 # --- Инициализация объектов ---
 pacman = Pacman(one_block_size, one_block_size, one_block_size, one_block_size,
@@ -31,7 +32,7 @@ pacman = Pacman(one_block_size, one_block_size, one_block_size, one_block_size,
 
 ghosts = [
     Ghost(9*one_block_size, 10*one_block_size, one_block_size, one_block_size,
-          pacman.speed//2, pacman, map_data, one_block_size, ghost_images[i])
+          pacman.speed//2, pacman, map_data, one_block_size, ghost_images[i], vulnerable_image)
     for i in range(4)
 ]
 
@@ -42,9 +43,13 @@ def create_rect(x, y, w, h, color):
 def draw_foods():
     for i in range(len(map_data)):
         for j in range(len(map_data[0])):
-            if map_data[i][j] == 2:
+            if map_data[i][j] == 2:  # обычная еда
                 create_rect(j*one_block_size+one_block_size//3, i*one_block_size+one_block_size//3,
                             one_block_size//3, one_block_size//3, (254,184,151))
+            elif map_data[i][j] == 4:  # супер‑точка
+                pygame.draw.circle(screen, (255,255,0),
+                    (j*one_block_size+one_block_size//2, i*one_block_size+one_block_size//2),
+                    one_block_size//3)
 
 def draw_walls():
     for i in range(len(map_data)):
@@ -70,39 +75,39 @@ def update_ghosts():
 
 def restart_pacman_and_ghosts():
     global pacman, ghosts
-    # создаём нового Pacman
     pacman = Pacman(
         one_block_size, one_block_size,
         one_block_size, one_block_size,
         one_block_size//5, map_data, one_block_size
     )
-    # создаём новых призраков (каждый со своей картинкой)
     ghosts = [
         Ghost(9*one_block_size, 10*one_block_size, one_block_size, one_block_size,
-              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[0]),
+              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[0], vulnerable_image),
         Ghost(9*one_block_size, 10*one_block_size, one_block_size, one_block_size,
-              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[1]),
+              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[1], vulnerable_image),
         Ghost(9*one_block_size, 10*one_block_size, one_block_size, one_block_size,
-              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[2]),
+              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[2], vulnerable_image),
         Ghost(9*one_block_size, 10*one_block_size, one_block_size, one_block_size,
-              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[3]),
+              pacman.speed//2, pacman, map_data, one_block_size, ghost_images[3], vulnerable_image),
     ]
-
-
 
 def game_over():
     global lives
     text = font.render("GAME OVER", True, (255, 0, 0))
-    # выводим сообщение в центр экрана
     screen.blit(text, (screen_width // 2 - text.get_width() // 2,
                        screen_height // 2 - text.get_height() // 2))
     pygame.display.flip()
-    # ждём 3 секунды
     pygame.time.wait(3000)
-    # сбрасываем жизни и перезапускаем игру
     lives = 3
     restart_pacman_and_ghosts()
 
+def game_win():
+    text = font.render("YOU WIN!", True, (0, 255, 0))
+    screen.blit(text, (screen_width // 2 - text.get_width() // 2,
+                       screen_height // 2 - text.get_height() // 2))
+    pygame.display.flip()
+    pygame.time.wait(3000)
+    restart_pacman_and_ghosts()
 
 # --- Игровой цикл ---
 def game_loop():
@@ -121,14 +126,27 @@ def game_loop():
                 elif event.key in (pygame.K_DOWN, pygame.K_s): pacman.next_direction = DIRECTION_BOTTOM
 
         pacman.move_process()
-        pacman.eat()
+        pacman.eat(ghosts)  # теперь передаём список призраков
         update_ghosts()
 
         if pacman.check_ghost_collision(ghosts):
-            lives -= 1
-            restart_pacman_and_ghosts()
-            if lives == 0:
-                game_over()
+            for g in ghosts:
+                if g.get_map_x() == pacman.get_map_x() and g.get_map_y() == pacman.get_map_y():
+                    if g.is_vulnerable:
+                        pacman.score += 50
+                        g.x, g.y = 9*one_block_size, 10*one_block_size
+                        g.is_vulnerable = False
+                    else:
+                        lives -= 1
+                        restart_pacman_and_ghosts()
+                        if lives == 0:
+                            game_over()
+                    break
+
+        # проверка победы
+        remaining_food = any(2 in row or 4 in row for row in map_data)
+        if not remaining_food:
+            game_win()
 
         draw_walls()
         draw_foods()
