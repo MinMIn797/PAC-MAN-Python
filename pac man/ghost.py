@@ -8,7 +8,7 @@ DIRECTION_LEFT = 2
 DIRECTION_BOTTOM = 1
 
 class Ghost:
-    def __init__(self, x, y, width, height, speed, pacman, map_data, one_block_size, image):
+    def __init__(self, x, y, width, height, speed, pacman, map_data, one_block_size, image, vulnerable_image):
         self.x, self.y = x, y
         self.width, self.height = width, height
         self.speed = speed
@@ -18,6 +18,7 @@ class Ghost:
         self.one_block_size = one_block_size
         self.range = 6
         self.image = pygame.transform.scale(image, (one_block_size, one_block_size))
+        self.vulnerable_image = pygame.transform.scale(vulnerable_image, (one_block_size, one_block_size))
 
         self.random_targets = [
             {"x": 1 * one_block_size, "y": 1 * one_block_size},
@@ -28,6 +29,14 @@ class Ghost:
         self.randomTargetIndex = random.randint(0, 3)
         self.target = self.random_targets[self.randomTargetIndex]
 
+        # --- новое: уязвимость ---
+        self.is_vulnerable = False
+        self.vulnerable_timer = 0
+
+    def make_vulnerable(self):
+        self.is_vulnerable = True
+        self.vulnerable_timer = pygame.time.get_ticks()
+
     def get_map_x(self): return int(self.x / self.one_block_size)
     def get_map_y(self): return int(self.y / self.one_block_size)
 
@@ -37,6 +46,10 @@ class Ghost:
         return math.sqrt(dx**2 + dy**2) <= self.range
 
     def move_process(self):
+        # проверяем таймер уязвимости (7 секунд)
+        if self.is_vulnerable and pygame.time.get_ticks() - self.vulnerable_timer > 7000:
+            self.is_vulnerable = False
+
         if self.is_in_range():
             self.target = self.pacman
         else:
@@ -117,4 +130,7 @@ class Ghost:
         return neighbors
 
     def draw(self, screen):
-        screen.blit(self.image, (self.x, self.y))
+        if self.is_vulnerable:
+            screen.blit(self.vulnerable_image, (self.x, self.y))
+        else:
+            screen.blit(self.image, (self.x, self.y))
